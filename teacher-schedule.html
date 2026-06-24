@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教师端线上课程表</title>
+<style>
+  :root {
+    --primary: #4a7bf7;
+    --primary-dark: #3560d4;
+    --primary-light: #e8eefb;
+    --danger: #e74c5f;
+    --danger-hover: #c93a4d;
+    --success: #2ecc71;
+    --warning: #f39c12;
+    --bg: #f0f4f8;
+    --card-bg: #ffffff;
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
+    --border: #e1e8ef;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: 20px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(74,123,247,0.3);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+  .header-actions { display: flex; gap: 12px; align-items: center; }
+  .btn-notify {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: white;
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .btn-notify:hover { background: rgba(255,255,255,0.35); }
+  .btn-notify.granted { background: var(--success); border-color: var(--success); }
+
+  /* ===== Layout ===== */
+  .container {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* ===== Sidebar ===== */
+  .sidebar { display: flex; flex-direction: column; gap: 20px; }
+
+  .panel {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+  }
+  .panel-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title .icon { font-size: 20px; }
+
+  /* Student management */
+  .student-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .student-input-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .student-input-row input:focus { border-color: var(--primary); }
+  .student-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .student-tag {
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: fadeIn 0.3s ease;
+  }
+  .student-tag .remove-student {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(74,123,247,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    transition: background 0.2s;
+  }
+  .student-tag .remove-student:hover { background: var(--danger); color: white; }
+
+  /* Form */
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 6px;
+  }
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    background: white;
+  }
+  .form-group input:focus,
+  .form-group select:focus { border-color: var(--primary); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.5px;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-primary:active { transform: scale(0.98); }
+
+  /* ===== Main Content ===== */
+  .main-content .panel { padding: 0; overflow: hidden; }
+  .schedule-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .schedule-header h2 { font-size: 18px; font-weight: 700; }
+  .schedule-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-light);
+  }
+  .schedule-stats span { background: var(--primary-light); padding: 4px 12px; border-radius: 12px; font-weight: 600; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-light);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  /* Schedule list */
+  .schedule-list { padding: 0; }
+  .schedule-date-group { padding: 0 24px; margin-bottom: 8px; }
+  .schedule-date-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary);
+    padding: 12px 0 8px;
+    border-bottom: 2px solid var(--primary-light);
+    margin-bottom: 12px;
+    position: sticky;
+    top: 80px;
+    background: var(--bg);
+    z-index: 10;
+  }
+
+  .class-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: center;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    border-left: 4px solid var(--primary);
+    transition: transform 0.15s, box-shadow 0.15s;
+    animation: slideIn 0.3s ease;
+  }
+  .class-card:hover { transform: translateX(4px); box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+  .class-card.past { opacity: 0.5; border-left-color: var(--text-light); }
+  .class-card.upcoming { border-left-color: var(--warning); }
+  .class-card .time-block {
+    text-align: center;
+    min-width: 80px;
+  }
+  .class-card .time-start {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .class-card .time-end {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-top: 2px;
+  }
+  .class-card .time-duration {
+    font-size: 11px;
+    color: var(--primary);
+    font-weight: 600;
+    margin-top: 4px;
+    background: var(--primary-light);
+    padding: 2px 8px;
+    border-radius: 8px;
+    display: inline-block;
+  }
+  .class-card .info { min-width: 0; }
+  .class-card .info .student-name {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .class-card .info .course-name {
+    font-size: 13px;
+    color: var(--text-light);
+  }
+  .class-card .info .course-name strong { color: var(--text); }
+  .class-card .actions { display: flex; gap: 6px; }
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .btn-delete { background: #ffeaea; color: var(--danger); }
+  .btn-delete:hover { background: var(--danger); color: white; }
+  .btn-edit { background: #fff3e0; color: var(--warning); }
+  .btn-edit:hover { background: var(--warning); color: white; }
+
+  .reminder-badge {
+    display: inline-block;
+    background: var(--warning);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    margin-left: 8px;
+    animation: pulse 1.5s infinite;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    padding: 28px;
+    width: 400px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    animation: popIn 0.3s ease;
+  }
+  .modal h3 { font-size: 18px; margin-bottom: 20px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-actions button { flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-cancel { background: var(--border); color: var(--text); }
+  .btn-confirm { background: var(--primary); color: white; }
+
+  /* Toast */
+  .toast-container {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: white;
+    padding: 14px 20px;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    font-size: 14px;
+    font-weight: 600;
+    animation: slideInRight 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 320px;
+  }
+  .toast.success { border-left: 4px solid var(--success); }
+  .toast.warning { border-left: 4px solid var(--warning); }
+  .toast.error { border-left: 4px solid var(--danger); }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .container { grid-template-columns: 1fr; padding: 16px; }
+    .header { padding: 16px; }
+    .header h1 { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <h1>📚 教师端线上课程表</h1>
+  <div class="header-actions">
+    <button class="btn-notify" id="notifyBtn" onclick="requestNotificationPermission()">🔔 开启提醒</button>
+  </div>
+</header>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Main Layout -->
+<div class="container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <!-- Student Management -->
+    <div class="panel">
+      <div class="panel-title"><span class="icon">👨‍🎓</span> 学生管理</div>
+      <div class="student-input-row">
+        <input type="text" id="studentNameInput" placeholder="输入学生姓名" onkeydown="if(event.key==='Enter')addStudent()">
+        <button class="btn-primary" style="width:auto;padding:10px 16px;" onclick="addStudent()">+</button>
+      </div>
+      <div class="student-tags" id="studentTags"></div>
+    </div>
+
+    <!-- Add Class Form -->
+    <div class="panel">
+      <div class="panel-title"><span class="icon">➕</span> 添加课程</div>
+      <form id="classForm" onsubmit="addClass(event)">
+        <div class="form-group">
+          <label>学生</label>
+          <select id="classStudent" required>
+            <option value="">请选择学生</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>课程名称</label>
+          <input type="text" id="courseName" placeholder="例如：数学、英语、钢琴..." required>
+        </div>
+        <div class="form-group">
+          <label>上课日期</label>
+          <input type="date" id="classDate" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>开始时间</label>
+            <input type="time" id="classStartTime" required>
+          </div>
+          <div class="form-group">
+            <label>结束时间</label>
+            <input type="time" id="classEndTime" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary">📅 添加到课程表</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="panel">
+      <div class="schedule-header">
+        <h2>📋 课程表</h2>
+        <div class="schedule-stats">
+          <span id="totalCount">共 0 节课</span>
+          <span id="upcomingCount">即将开始 0 节</span>
+        </div>
+      </div>
+      <div class="schedule-list" id="scheduleList">
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>课程表还是空的，快去添加课程吧！</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>⚠️ 确认删除</h3>
+    <p id="deleteModalText">确定要删除这节课程吗？此操作不可撤销。</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDeleteModal()">取消</button>
+      <button class="btn-confirm" id="confirmDeleteBtn" style="background:var(--danger);">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== Data Layer ====================
+const STORAGE_KEY_STUDENTS = 'teacher_schedule_students';
+const STORAGE_KEY_CLASSES = 'teacher_schedule_classes';
+
+function loadData() {
+  return {
+    students: JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENTS) || '[]'),
+    classes: JSON.parse(localStorage.getItem(STORAGE_KEY_CLASSES) || '[]')
+  };
+}
+
+function saveStudents(students) {
+  localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(students));
+}
+
+function saveClasses(classes) {
+  localStorage.setItem(STORAGE_KEY_CLASSES, JSON.stringify(classes));
+}
+
+// ==================== Student Management ====================
+function addStudent() {
+  const input = document.getElementById('studentNameInput');
+  const name = input.value.trim();
+  if (!name) { showToast('请输入学生姓名', 'error'); return; }
+
+  const data = loadData();
+  if (data.students.includes(name)) {
+    showToast('该学生已存在', 'error');
+    return;
+  }
+
+  data.students.push(name);
+  saveStudents(data.students);
+  input.value = '';
+  renderStudents();
+  renderStudentOptions();
+  showToast(`已添加学生：${name}`, 'success');
+}
+
+function removeStudent(name) {
+  let data = loadData();
+  data.students = data.students.filter(s => s !== name);
+  saveStudents(data.students);
+
+  // Remove classes for this student
+  data.classes = data.classes.filter(c => c.studentName !== name);
+  saveClasses(data.classes);
+
+  renderStudents();
+  renderStudentOptions();
+  renderSchedule();
+  showToast(`已移除学生：${name}`, 'warning');
+}
+
+function renderStudents() {
+  const container = document.getElementById('studentTags');
+  const data = loadData();
+  if (data.students.length === 0) {
+    container.innerHTML = '<span style="font-size:13px;color:var(--text-light);">暂无学生，请添加</span>';
+    return;
+  }
+  container.innerHTML = data.students.map(name =>
+    `<span class="student-tag">
+      ${name}
+      <span class="remove-student" onclick="removeStudent('${name}')" title="删除">×</span>
+    </span>`
+  ).join('');
+}
+
+function renderStudentOptions() {
+  const select = document.getElementById('classStudent');
+  const data = loadData();
+  select.innerHTML = '<option value="">请选择学生</option>' +
+    data.students.map(name => `<option value="${name}">${name}</option>`).join('');
+}
+
+// ==================== Class Management ====================
+let deleteTargetId = null;
+
+function addClass(e) {
+  e.preventDefault();
+
+  const studentName = document.getElementById('classStudent').value;
+  const courseName = document.getElementById('courseName').value.trim();
+  const date = document.getElementById('classDate').value;
+  const startTime = document.getElementById('classStartTime').value;
+  const endTime = document.getElementById('classEndTime').value;
+
+  if (!studentName) { showToast('请选择学生', 'error'); return; }
+  if (!courseName) { showToast('请输入课程名称', 'error'); return; }
+  if (!date) { showToast('请选择上课日期', 'error'); return; }
+  if (!startTime || !endTime) { showToast('请设置上课时间', 'error'); return; }
+  if (startTime >= endTime) { showToast('结束时间必须晚于开始时间', 'error'); return; }
+
+  const data = loadData();
+  const newClass = {
+    id: generateId(),
+    studentName,
+    courseName,
+    date,
+    startTime,
+    endTime,
+    notified: false
+  };
+
+  data.classes.push(newClass);
+  saveClasses(data.classes);
+
+  // Reset form
+  document.getElementById('classForm').reset();
+  // Set default date to today
+  document.getElementById('classDate').value = formatDate(new Date());
+
+  renderSchedule();
+  showToast(`已为 ${studentName} 添加课程：${courseName}`, 'success');
+}
+
+function confirmDelete(id) {
+  deleteTargetId = id;
+  const cls = loadData().classes.find(c => c.id === id);
+  if (cls) {
+    document.getElementById('deleteModalText').textContent =
+      `确定要删除 "${cls.courseName}"（${cls.studentName} · ${cls.date} ${cls.startTime}-${cls.endTime}）吗？`;
+  }
+  document.getElementById('deleteModal').classList.add('active');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('active');
+  deleteTargetId = null;
+}
+
+function executeDelete() {
+  if (!deleteTargetId) return;
+  let data = loadData();
+  data.classes = data.classes.filter(c => c.id !== deleteTargetId);
+  saveClasses(data.classes);
+  closeDeleteModal();
+  renderSchedule();
+  showToast('课程已删除', 'warning');
+}
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+// ==================== Schedule Rendering ====================
+function renderSchedule() {
+  const data = loadData();
+  const container = document.getElementById('scheduleList');
+  const classes = [...data.classes].sort((a, b) => {
+    const da = new Date(a.date + 'T' + a.startTime);
+    const db = new Date(b.date + 'T' + b.startTime);
+    return da - db;
+  });
+
+  // Stats
+  const now = new Date();
+  const upcoming = classes.filter(c => {
+    const ct = new Date(c.date + 'T' + c.startTime);
+    return ct >= now;
+  }).length;
+  document.getElementById('totalCount').textContent = `共 ${classes.length} 节课`;
+  document.getElementById('upcomingCount').textContent = `即将开始 ${upcoming} 节`;
+
+  if (classes.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <p>课程表还是空的，快去添加课程吧！</p>
+      </div>`;
+    return;
+  }
+
+  // Group by date
+  const grouped = {};
+  classes.forEach(cls => {
+    if (!grouped[cls.date]) grouped[cls.date] = [];
+    grouped[cls.date].push(cls);
+  });
+
+  let html = '';
+  Object.keys(grouped).forEach(date => {
+    const dateObj = new Date(date + 'T00:00:00');
+    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const dateLabel = `${date} ${weekDays[dateObj.getDay()]}`;
+
+    html += `<div class="schedule-date-group">`;
+    html += `<div class="schedule-date-label">📅 ${dateLabel}</div>`;
+
+    grouped[date].forEach(cls => {
+      const classDateTime = new Date(cls.date + 'T' + cls.startTime);
+      const isPast = classDateTime < now;
+      const isUpcoming = !isPast && (classDateTime - now) < 30 * 60 * 1000; // within 30 min
+      const cardClass = isPast ? 'past' : (isUpcoming ? 'upcoming' : '');
+
+      // Calculate duration
+      const [sh, sm] = cls.startTime.split(':').map(Number);
+      const [eh, em] = cls.endTime.split(':').map(Number);
+      const durationMin = (eh * 60 + em) - (sh * 60 + sm);
+      const durationH = Math.floor(durationMin / 60);
+      const durationM = durationMin % 60;
+      const durationStr = durationH > 0 ? `${durationH}小时${durationM}分钟` : `${durationM}分钟`;
+
+      const reminderBadge = (isUpcoming || isPast) && !cls.notified ? '' : '';
+
+      html += `
+        <div class="class-card ${cardClass}">
+          <div class="time-block">
+            <div class="time-start">${cls.startTime}</div>
+            <div class="time-end">${cls.endTime}</div>
+            <div class="time-duration">${durationStr}</div>
+          </div>
+          <div class="info">
+            <div class="student-name">👤 ${cls.studentName}${reminderBadge}</div>
+            <div class="course-name"><strong>📖 ${cls.courseName}</strong></div>
+          </div>
+          <div class="actions">
+            <button class="btn-icon btn-delete" onclick="confirmDelete('${cls.id}')" title="删除">🗑️</button>
+          </div>
+        </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ==================== Notification System ====================
+let notificationPermission = 'default';
+
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) {
+    showToast('您的浏览器不支持通知功能', 'error');
+    return;
+  }
+
+  try {
+    notificationPermission = await Notification.requestPermission();
+    updateNotifyButton();
+    if (notificationPermission === 'granted') {
+      showToast('通知权限已开启，课前10分钟将自动提醒', 'success');
+    } else {
+      showToast('通知权限被拒绝，将无法收到课前提醒', 'warning');
+    }
+  } catch (e) {
+    showToast('通知权限请求失败', 'error');
+  }
+}
+
+function updateNotifyButton() {
+  const btn = document.getElementById('notifyBtn');
+  if (notificationPermission === 'granted') {
+    btn.textContent = '🔔 提醒已开启';
+    btn.classList.add('granted');
+  } else {
+    btn.textContent = '🔔 开启提醒';
+    btn.classList.remove('granted');
+  }
+}
+
+function checkReminders() {
+  if (notificationPermission !== 'granted') return;
+
+  const data = loadData();
+  const now = new Date();
+  let changed = false;
+
+  data.classes.forEach(cls => {
+    if (cls.notified) return;
+
+    const classTime = new Date(cls.date + 'T' + cls.startTime);
+    const reminderTime = new Date(classTime.getTime() - 10 * 60 * 1000); // 10 min before
+    const elapsed = now - reminderTime;
+
+    // Check if we're in the reminder window (between 10 min before and class start)
+    if (elapsed >= 0 && elapsed < 10 * 60 * 1000) {
+      sendReminder(cls);
+      cls.notified = true;
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    saveClasses(data.classes);
+    renderSchedule();
+  }
+}
+
+function sendReminder(cls) {
+  try {
+    const [sh, sm] = cls.startTime.split(':').map(Number);
+    const [eh, em] = cls.endTime.split(':').map(Number);
+    const durationMin = (eh * 60 + em) - (sh * 60 + sm);
+
+    const notification = new Notification('⏰ 课程提醒', {
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📚</text></svg>',
+      body: `您有一节课即将开始！`,
+      tag: cls.id,
+      requireInteraction: false,
+      timestamp: Date.now()
+    });
+
+    // Detailed message on hover via re-show
+    setTimeout(() => {
+      new Notification('📚 课程详情', {
+        body: `${cls.courseName} - ${cls.studentName}\n${cls.date} ${cls.startTime}~${cls.endTime}（${durationMin}分钟）`,
+        tag: cls.id + '-detail',
+        requireInteraction: false
+      });
+    }, 100);
+
+    showToast(`⏰ 提醒：${cls.courseName} 将在10分钟后开始`, 'warning');
+  } catch (e) {
+    console.error('Notification error:', e);
+  }
+}
+
+// ==================== Toast Notifications ====================
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const icons = { success: '✅', warning: '⚠️', error: '❌' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type] || ''}</span><span>${message}</span>`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(40px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// ==================== Utility ====================
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// ==================== Initialization ====================
+function init() {
+  // Set default date to today
+  document.getElementById('classDate').value = formatDate(new Date());
+
+  // Load and render
+  renderStudents();
+  renderStudentOptions();
+  renderSchedule();
+  updateNotifyButton();
+
+  // Check reminders every 30 seconds
+  setInterval(checkReminders, 30000);
+  // Also check on visibility change
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkReminders();
+  });
+
+  // Confirm delete button
+  document.getElementById('confirmDeleteBtn').addEventListener('click', executeDelete);
+
+  // Close modal on overlay click
+  document.getElementById('deleteModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeDeleteModal();
+  });
+
+  // Initial permission check
+  if ('Notification' in window) {
+    Notification.requestPermission().then(perm => {
+      notificationPermission = perm;
+      updateNotifyButton();
+    });
+  }
+}
+
+// Start the app
+init();
+</script>
+
+</body>
+</html>
